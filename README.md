@@ -1,8 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HireFit - Resume Tailor
 
-## Getting Started
+A Next.js application that uses AI to tailor resumes to job descriptions. Currently implementing Phase 2 of development.
 
-First, run the development server:
+## Phase 2 Status
+
+✅ **Completed**: AI Integration with Gemini
+
+- Extracts specific paragraph from uploaded .docx resume
+- Calls Gemini API to rewrite bullet points
+- Logs original and AI-improved text to console
+- Hardcoded job description for testing
+
+## Setup
+
+1. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+2. Create a `.env.local` file in the project root:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+3. Install dependencies:
+
+```bash
+npm install
+```
+
+4. Run the development server:
 
 ```bash
 npm run dev
@@ -14,11 +39,23 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testing Phase 2
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Upload a `.docx` resume file using the web interface
+2. Check the server console logs to see:
+   - Original bullet point extracted from the 10th paragraph
+   - AI-rewritten version optimized for the hardcoded job description
+3. Download the file (unchanged in Phase 2 - modification happens in Phase 3)
+
+## Tech Stack
+
+- **Framework**: Next.js 15 with App Router
+- **AI**: Google Gemini API via @google/genai SDK
+- **File Processing**: JSZip for .docx parsing
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript
 
 ## Learn More
 
