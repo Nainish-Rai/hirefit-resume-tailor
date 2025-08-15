@@ -4,15 +4,17 @@ import { useState } from "react";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+  const [jobDescription, setJobDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   async function handleUpload() {
-    if (!file) return;
+    if (!file || !jobDescription.trim()) return;
 
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append("resume", file);
+      formData.append("jobDescription", jobDescription);
 
       const response = await fetch("/api/tailor", {
         method: "POST",
@@ -25,7 +27,7 @@ export default function Home() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = file.name.replace(".docx", "_copy.docx");
+        a.download = file.name.replace(".docx", "_tailored.docx");
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -44,12 +46,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Resume Tailor - Phase 2 Test
+      <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+          Resume Tailor
         </h1>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Upload Resume (.docx)
@@ -62,25 +64,39 @@ export default function Home() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Job Description
+            </label>
+            <textarea
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              placeholder="Paste the job description here..."
+              rows={8}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+            />
+          </div>
+
           <button
             onClick={handleUpload}
-            disabled={!file || isUploading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            disabled={!file || !jobDescription.trim() || isUploading}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
           >
-            {isUploading ? "Processing..." : "Test Upload & Download"}
+            {isUploading ? "Tailoring Resume..." : "Tailor My Resume"}
           </button>
         </div>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-md">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">
-            Phase 2 Test:
+        <div className="mt-8 p-4 bg-blue-50 rounded-md">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">
+            How it works:
           </h3>
-          <ul className="text-xs text-gray-600 space-y-1">
-            <li>• Upload a .docx file</li>
-            <li>• Extract 10th paragraph as bullet point</li>
-            <li>• Send to Gemini AI for rewriting</li>
-            <li>• Check server console for original + rewritten text</li>
-            <li>• Download unchanged copy (modification in Phase 3)</li>
+          <ul className="text-xs text-blue-700 space-y-1">
+            <li>• Upload your .docx resume file</li>
+            <li>• Paste the job description you're applying to</li>
+            <li>• AI tailors your entire resume content to match the role</li>
+            <li>
+              • Download your tailored resume with all formatting preserved
+            </li>
           </ul>
         </div>
       </div>
