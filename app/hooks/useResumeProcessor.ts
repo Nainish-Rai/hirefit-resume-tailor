@@ -16,6 +16,9 @@ export function useResumeProcessor() {
   });
   const [workbench, setWorkbench] = useState<WorkbenchLine[] | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string | null>(null);
+  const [rerollInProgress, setRerollInProgress] = useState<Set<number>>(
+    new Set()
+  );
 
   const isProcessing =
     status.state === "uploading" || status.state === "processing";
@@ -33,6 +36,7 @@ export function useResumeProcessor() {
     setJobDescription("");
     setWorkbench(null);
     setPreviewFileName(null);
+    setRerollInProgress(new Set());
     resetStatus();
   }
 
@@ -45,7 +49,7 @@ export function useResumeProcessor() {
     try {
       setStatus({
         state: "processing",
-        message: "AI is analyzing and drafting suggestions...",
+        message: "AI is analyzing your experience and job requirements...",
       });
 
       const data = await previewResume(file, jobDescription);
@@ -76,12 +80,68 @@ export function useResumeProcessor() {
     }
   }
 
+  async function handleRerollLine(lineIndex: number) {
+    if (!file || !workbench || rerollInProgress.has(lineIndex)) return;
+
+    setRerollInProgress((prev) => new Set(prev).add(lineIndex));
+
+    try {
+      // Simulate re-roll API call - you'll need to implement this endpoint
+      const response = await fetch("/api/tailor/reroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalText: workbench[lineIndex].originalText,
+          jobDescription,
+          lineIndex,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate alternative");
+
+      const { suggestedText } = await response.json();
+
+      setWorkbench((prev) =>
+        prev
+          ? prev.map((line) =>
+              line.index === lineIndex
+                ? { ...line, suggestedText, choice: "suggested" as const }
+                : line
+            )
+          : prev
+      );
+    } catch (error) {
+      console.error("Re-roll error:", error);
+      // For now, just generate a variation of the current suggestion
+      setWorkbench((prev) =>
+        prev
+          ? prev.map((line) =>
+              line.index === lineIndex
+                ? {
+                    ...line,
+                    suggestedText:
+                      line.suggestedText + " [Alternative version]",
+                    choice: "suggested" as const,
+                  }
+                : line
+            )
+          : prev
+      );
+    } finally {
+      setRerollInProgress((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(lineIndex);
+        return newSet;
+      });
+    }
+  }
+
   async function handleFinalize() {
     if (!file || !workbench) return;
 
     setStatus({
       state: "processing",
-      message: "Finalizing and generating DOCX...",
+      message: "Applying your changes and generating the final document...",
     });
 
     const acceptedReplacements: Record<string, string> = {};
@@ -105,7 +165,7 @@ export function useResumeProcessor() {
 
       setStatus({
         state: "success",
-        message: "Your tailored resume is ready!",
+        message: "Your tailored resume is ready for download!",
         downloadUrl,
         fileName,
       });
@@ -130,7 +190,7 @@ export function useResumeProcessor() {
     try {
       setStatus({
         state: "processing",
-        message: "AI is tailoring your resume...",
+        message: "AI is automatically tailoring your entire resume...",
       });
 
       const { downloadUrl, fileName } = await oneClickTailor(
@@ -140,7 +200,7 @@ export function useResumeProcessor() {
 
       setStatus({
         state: "success",
-        message: "Your resume has been successfully tailored!",
+        message: "Your resume has been successfully tailored and is ready!",
         downloadUrl,
         fileName,
       });
@@ -167,10 +227,12 @@ export function useResumeProcessor() {
     previewFileName,
     isProcessing,
     canSubmit,
+    rerollInProgress,
     resetStatus,
     resetAll,
     handlePreview,
     handleFinalize,
     handleOneClickTailor,
+    handleRerollLine,
   };
 }

@@ -4,6 +4,133 @@ import JSZip from "jszip";
 
 export const runtime = "nodejs";
 
+// Helper function to identify if a line is likely a bullet point or description
+function isBulletPoint(line: string): boolean {
+  const trimmed = line.trim();
+
+  // Check for common bullet point indicators
+  const bulletIndicators = [
+    "•",
+    "·",
+    "○",
+    "▪",
+    "▫",
+    "■",
+    "□",
+    "✓",
+    "✔",
+    "-",
+    "*",
+    ">",
+    "→",
+    "⋄",
+    "◦",
+    "⮚",
+    "▶",
+  ];
+
+  // Check if line starts with bullet symbols
+  if (bulletIndicators.some((bullet) => trimmed.startsWith(bullet))) {
+    return true;
+  }
+
+  // Check for numbered lists (1., 2., etc.)
+  if (/^\d+[\.\)]\s/.test(trimmed)) {
+    return true;
+  }
+
+  // Check for lettered lists (a., b., etc.)
+  if (/^[a-zA-Z][\.\)]\s/.test(trimmed)) {
+    return true;
+  }
+
+  // Check for indented lines that likely describe responsibilities/achievements
+  if (
+    trimmed.length > 20 &&
+    (trimmed.toLowerCase().includes("developed") ||
+      trimmed.toLowerCase().includes("managed") ||
+      trimmed.toLowerCase().includes("implemented") ||
+      trimmed.toLowerCase().includes("created") ||
+      trimmed.toLowerCase().includes("led") ||
+      trimmed.toLowerCase().includes("designed") ||
+      trimmed.toLowerCase().includes("achieved") ||
+      trimmed.toLowerCase().includes("improved") ||
+      trimmed.toLowerCase().includes("reduced") ||
+      trimmed.toLowerCase().includes("increased") ||
+      trimmed.toLowerCase().includes("collaborated") ||
+      trimmed.toLowerCase().includes("coordinated") ||
+      trimmed.toLowerCase().includes("executed") ||
+      trimmed.toLowerCase().includes("analyzed") ||
+      trimmed.toLowerCase().includes("optimized"))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+// Helper function to identify if a line is likely a title, header, or structural element
+function isStructuralElement(line: string): boolean {
+  const trimmed = line.trim();
+
+  // Very short lines are likely titles
+  if (trimmed.length < 4) {
+    return true;
+  }
+
+  // Common resume section headers
+  const sectionHeaders = [
+    "experience",
+    "education",
+    "skills",
+    "projects",
+    "summary",
+    "objective",
+    "certifications",
+    "awards",
+    "publications",
+    "languages",
+    "references",
+    "professional experience",
+    "work experience",
+    "technical skills",
+    "professional summary",
+    "career objective",
+    "core competencies",
+  ];
+
+  if (
+    sectionHeaders.some(
+      (header) =>
+        trimmed.toLowerCase().includes(header.toLowerCase()) &&
+        trimmed.length < 50
+    )
+  ) {
+    return true;
+  }
+
+  // Job titles, company names, dates (typically short and don't contain action verbs)
+  if (
+    trimmed.length < 60 &&
+    (/\d{4}/.test(trimmed) || // Contains year
+      trimmed.split(" ").length <= 4 || // Very short phrases
+      /^[A-Z][a-z]+\s*[A-Z]/.test(trimmed)) // Title case formatting
+  ) {
+    return true;
+  }
+
+  // Contact information
+  if (
+    trimmed.includes("@") ||
+    trimmed.includes("phone") ||
+    trimmed.includes("email")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Parse form data using native Next.js 15 API
@@ -97,9 +224,26 @@ export async function POST(req: NextRequest) {
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
+    // Identify which lines are bullet points vs structural elements
+    const linesToTailor = originalLines.map((line, index) => ({
+      index,
+      text: line,
+      isBulletPoint: isBulletPoint(line),
+      isStructural: isStructuralElement(line),
+    }));
+
+    const bulletPointLines = linesToTailor.filter((item) => item.isBulletPoint);
+    const structuralLines = linesToTailor.filter((item) => item.isStructural);
+
+    console.log(
+      `Identified ${bulletPointLines.length} bullet points and ${structuralLines.length} structural elements out of ${originalLines.length} total lines`
+    );
+
     // === Branch 1: PREVIEW (return JSON with per-line suggestions) ===
     if (mode === "preview") {
-      console.log("=== PREVIEW MODE: Generating line-by-line suggestions ===");
+      console.log(
+        "=== PREVIEW MODE: Generating focused bullet point suggestions ==="
+      );
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
@@ -108,9 +252,9 @@ export async function POST(req: NextRequest) {
 
       const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are HireFitAI, an elite career strategist and resume optimization specialist with 15+ years of executive recruitment experience across Fortune 500 companies, specialized in applicant tracking systems (ATS) algorithms and modern hiring psychology.
+      const prompt = `You are HireFitAI, an elite career strategist and resume optimization specialist focused on bullet point enhancement.
 
-MISSION: Transform this resume into an ATS-optimized, psychologically compelling document that maximizes interview conversion rates while maintaining complete truthfulness.
+MISSION: Transform bullet points and achievement descriptions in this resume to be ATS-optimized and highly compelling while preserving all titles, headers, and structural elements EXACTLY as they are.
 
 ORIGINAL RESUME:
 ${resumeText}
@@ -118,34 +262,53 @@ ${resumeText}
 TARGET JOB DESCRIPTION:
 ${jobDescription}
 
+FOCUS AREAS FOR TAILORING:
+- ONLY modify bullet points, achievement descriptions, and responsibility statements
+- PRESERVE all job titles, company names, section headers, dates, and contact information exactly as written
+- PRESERVE all structural elements like "EXPERIENCE", "EDUCATION", "SKILLS" headers
+- Focus on bullet points that start with action verbs or describe achievements
+- Enhance technical skills descriptions and project details
+
+BULLET POINT OPTIMIZATION STRATEGY:
+1. Transform weak action verbs into powerful, industry-specific ones
+2. Add quantifiable metrics where they can be reasonably inferred
+3. Integrate job-relevant keywords naturally
+4. Emphasize results and impact over responsibilities
+5. Align technical skills with job requirements
+
 OUTPUT INSTRUCTIONS:
-Return the response as a JSON object with the following structure:
+Return a JSON object with this structure:
 {
   "lineReplacements": [
     {
-      "originalLine": "original text content",
-      "tailoredLine": "improved text content with similar length",
+      "originalLine": "exact original text",
+      "tailoredLine": "enhanced version focusing on impact",
       "lineIndex": 0,
-      "improvementType": "keyword_optimization|action_verb_enhancement|quantification|relevance_boost|formatting_improvement"
+      "shouldTailor": true,
+      "improvementType": "bullet_point_enhancement|keyword_integration|quantification|action_verb_improvement"
     }
   ]
 }
 
-MANDATORY REQUIREMENTS:
-- MUST include ALL non-empty lines from the original resume in lineReplacements array
-- Keep tailored lines similar in length to original lines (±30% character difference maximum)
-- Maintain exact same number of lines as original
-- Preserve formatting indicators like bullet points, numbers, etc.
-- Return ONLY the JSON object, no additional text
+CRITICAL REQUIREMENTS:
+- ONLY improve lines that are clearly bullet points or achievement descriptions
+- For structural elements (titles, headers, dates), set "shouldTailor": false and keep "tailoredLine" identical to "originalLine"
+- Maintain similar length for tailored bullet points (±40% maximum)
+- Preserve bullet point formatting (•, -, *, etc.)
+- Include ALL lines in the response
 
-ORIGINAL RESUME LINES FOR REFERENCE (IMPROVE ALL OF THESE):
-${resumeText
-  .split("\n")
-  .map((line, index) => `${index}: ${line.trim()}`)
-  .filter((line) => line.split(": ")[1].length > 0)
+LINES TO ANALYZE:
+${originalLines
+  .map((line, index) => {
+    const isBullet = isBulletPoint(line);
+    const isStruct = isStructuralElement(line);
+    return `${index}: ${line} [${
+      isBullet ? "BULLET" : isStruct ? "STRUCTURAL" : "CONTENT"
+    }]`;
+  })
   .join("\n")}
 
-TOTAL LINES TO IMPROVE: ${originalLines.length}`;
+Focus your improvements on lines marked as [BULLET] or [CONTENT]. Keep [STRUCTURAL] lines unchanged.`;
 
       let lineReplacements: any[] = [];
       try {
@@ -174,13 +337,21 @@ TOTAL LINES TO IMPROVE: ${originalLines.length}`;
         );
       }
 
-      // Map replacements by index or content
+      // Map replacements with focus on bullet points
       const lineReplacementMap = new Map<number, string>();
       for (const replacement of lineReplacements) {
         const originalLine = replacement.originalLine?.trim();
         const tailoredLine = replacement.tailoredLine?.trim();
         const lineIndex = replacement.lineIndex;
+        const shouldTailor = replacement.shouldTailor !== false; // Default to true if not specified
+
         if (!originalLine || !tailoredLine) continue;
+
+        // Only apply changes if shouldTailor is true
+        if (!shouldTailor) {
+          continue; // Skip structural elements
+        }
+
         if (
           typeof lineIndex === "number" &&
           lineIndex >= 0 &&
@@ -199,24 +370,30 @@ TOTAL LINES TO IMPROVE: ${originalLines.length}`;
         }
       }
 
-      // Normalize output to include all lines
+      // Normalize output to include all lines, but only show changes for bullet points
       const lines = originalLines.map((orig, i) => ({
         index: i,
         originalText: orig,
         suggestedText: lineReplacementMap.get(i) || orig,
+        isBulletPoint: isBulletPoint(orig),
+        isStructural: isStructuralElement(orig),
       }));
 
       return NextResponse.json(
         {
           fileName: file.name,
           totalLines: originalLines.length,
+          bulletPointsIdentified: bulletPointLines.length,
+          structuralElementsPreserved: structuralLines.length,
           lines,
         },
         { status: 200 }
       );
     } else if (mode === "finalize") {
       // === Branch 2: FINALIZE (apply accepted replacements, generate DOCX) ===
-      console.log("=== FINALIZE MODE: Applying accepted replacements ===");
+      console.log(
+        "=== FINALIZE MODE: Applying accepted bullet point replacements ==="
+      );
       if (!acceptedReplacementsRaw) {
         return NextResponse.json(
           { error: "acceptedReplacements is required" },

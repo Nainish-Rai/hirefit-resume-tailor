@@ -21,11 +21,13 @@ export default function Home() {
     setWorkbench,
     isProcessing,
     canSubmit,
+    rerollInProgress,
     resetStatus,
     resetAll,
     handlePreview,
     handleFinalize,
     handleOneClickTailor,
+    handleRerollLine,
   } = useResumeProcessor();
 
   const {
@@ -84,10 +86,12 @@ export default function Home() {
             <JobDescriptionPanel jobDescription={jobDescription} />
             <ResumeEditorPanel
               workbench={workbench}
+              rerollInProgress={rerollInProgress}
               onUpdateChoice={updateChoice}
               onUpdateCustomText={updateCustomText}
               onAcceptAll={acceptAll}
               onUseOriginals={useOriginals}
+              onRerollLine={handleRerollLine}
             />
             <SidebarPanel
               matchScore={matchScore}
