@@ -103,68 +103,213 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     // Create comprehensive prompt for whole resume tailoring
-    const prompt = `Please tailor this entire resume to align with the job description provided. Return the complete tailored resume text while maintaining the original structure and formatting cues.
+    const prompt = `You are HireFitAI, an elite career strategist and resume optimization specialist with 15+ years of executive recruitment experience across Fortune 500 companies, specialized in applicant tracking systems (ATS) algorithms and modern hiring psychology.
+
+MISSION: Transform this resume into an ATS-optimized, psychologically compelling document that maximizes interview conversion rates while maintaining complete truthfulness.
 
 ORIGINAL RESUME:
 ${resumeText}
 
-JOB DESCRIPTION:
+TARGET JOB DESCRIPTION:
 ${jobDescription}
 
-INSTRUCTIONS:
-1. Keep all section headers (Experience, Education, Skills, etc.) exactly as they are
-2. Preserve contact information, dates, company names, and job titles
-3. Rewrite bullet points and descriptions to highlight relevant skills and experiences from the job description
-4. Use keywords and terminology from the job description naturally
-5. Maintain the same structure and flow as the original resume
-6. Keep the same bullet point format and line breaks
-7. Return ONLY the tailored resume text, no explanations or comments
-8. Ensure each line of the output corresponds to the original structure
+STRATEGIC OPTIMIZATION FRAMEWORK:
 
-TAILORED RESUME:`;
+1. ATS COMPATIBILITY ANALYSIS
+- Integrate high-impact keywords from the job description naturally throughout the content
+- Ensure proper keyword density without stuffing (2-3% target)
+- Use exact terminology and phrases from the job posting when applicable
+- Maintain clean, parseable structure for automated screening systems
+
+2. PSYCHOLOGICAL IMPACT ENHANCEMENT
+- Transform basic job descriptions into compelling achievement statements using quantified results
+- Lead with action verbs that demonstrate leadership and initiative
+- Create narrative flow that builds confidence in the candidate's progression
+- Highlight transferable skills that directly address job requirements
+
+3. CONTENT HIERARCHY OPTIMIZATION
+- Prioritize most relevant experiences and skills for this specific role
+- Reorder bullet points to lead with strongest, most relevant achievements
+- Emphasize technical skills, certifications, and qualifications mentioned in job posting
+- Strengthen weak areas by connecting existing experience to job requirements
+
+4. ACHIEVEMENT AMPLIFICATION
+- Convert responsibilities into quantified accomplishments where possible
+- Use the enhanced STAR methodology (Situation, Task, Action, Result + Impact)
+- Include metrics, percentages, timeframes, and scope indicators
+- Demonstrate progression and increasing responsibility over time
+
+CRITICAL REQUIREMENTS:
+- Maintain ALL original section headers, contact information, dates, company names, and job titles EXACTLY as provided
+- Preserve the original document structure and flow completely
+- Keep the same bullet point format and line breaks as the original
+- Ensure each line corresponds to the original structure for proper XML replacement
+- Use ONLY information that can be reasonably inferred or enhanced from existing content
+- Never fabricate experiences, roles, or qualifications not present in the original
+- IMPROVE EVERY SINGLE LINE - even if it's just minor enhancements like stronger action verbs or better phrasing
+
+OPTIMIZATION FOCUS AREAS:
+- Keywords and terminology alignment with job description
+- Skills section enhancement to match required/preferred qualifications
+- Experience bullet points rewritten for maximum impact and relevance
+- Professional summary/objective refined to target this specific opportunity
+- Technical proficiencies highlighted and prioritized based on job requirements
+- Contact information optimization (if applicable)
+- Education section enhancement with relevant coursework/achievements
+- Certification and skill highlighting
+
+OUTPUT INSTRUCTIONS:
+Return the response as a JSON object with the following structure:
+{
+  "lineReplacements": [
+    {
+      "originalLine": "original text content",
+      "tailoredLine": "improved text content with similar length",
+      "lineIndex": 0,
+      "improvementType": "keyword_optimization|action_verb_enhancement|quantification|relevance_boost|formatting_improvement"
+    }
+  ]
+}
+
+MANDATORY REQUIREMENTS:
+- MUST include ALL non-empty lines from the original resume in lineReplacements array
+- Even small improvements count - enhance action verbs, add impact words, improve flow
+- Keep tailored lines similar in length to original lines (±30% character difference maximum)
+- Maintain exact same number of lines as original
+- Preserve formatting indicators like bullet points, numbers, etc.
+- If a line cannot be improved meaningfully, still include it with minimal enhancement
+- Return ONLY the JSON object, no additional text
+
+ORIGINAL RESUME LINES FOR REFERENCE (IMPROVE ALL OF THESE):
+${resumeText
+  .split("\n")
+  .map((line, index) => `${index}: ${line.trim()}`)
+  .filter((line, index) => line.split(": ")[1].length > 0)
+  .join("\n")}
+
+TOTAL LINES TO IMPROVE: ${
+      resumeText.split("\n").filter((line) => line.trim().length > 0).length
+    }`;
 
     // Initialize modifiedDocumentXml with original content
     let modifiedDocumentXml = documentXml;
 
     try {
-      console.log("Sending entire resume to AI for tailoring...");
+      console.log("Sending entire resume to AI for comprehensive tailoring...");
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
       });
 
-      const tailoredResumeText = response.text?.trim();
+      const aiResponse = response.text?.trim();
 
-      if (!tailoredResumeText) {
+      if (!aiResponse) {
         throw new Error("AI returned empty response");
       }
 
-      console.log(
-        `Received tailored resume (${tailoredResumeText.length} characters)`
-      );
+      console.log(`Received AI response (${aiResponse.length} characters)`);
 
-      // Split tailored text into lines to match with original paragraphs
-      const tailoredLines = tailoredResumeText
-        .split("\n")
-        .filter((line) => line.trim().length > 0);
+      // Parse JSON response
+      let lineReplacements = [];
+      try {
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error("No JSON object found in AI response");
+        }
+
+        const jsonResponse = JSON.parse(jsonMatch[0]);
+        lineReplacements = jsonResponse.lineReplacements || [];
+        console.log(`Parsed ${lineReplacements.length} line replacements`);
+
+        // Validate that we got improvements for all lines
+        const originalLineCount = resumeText
+          .split("\n")
+          .filter((line) => line.trim().length > 0).length;
+        if (lineReplacements.length < originalLineCount * 0.8) {
+          console.warn(
+            `Warning: Only ${lineReplacements.length} improvements for ${originalLineCount} lines. Some lines may not be enhanced.`
+          );
+        }
+      } catch (parseError) {
+        console.error("Failed to parse AI JSON response:", parseError);
+        console.log("AI Response:", aiResponse);
+        throw new Error("AI returned invalid JSON format");
+      }
+
+      // Create comprehensive line mapping for all content
+      const lineReplacementMap = new Map();
       const originalLines = resumeText
         .split("\n")
         .filter((line) => line.trim().length > 0);
 
-      console.log(
-        `Original lines: ${originalLines.length}, Tailored lines: ${tailoredLines.length}`
-      );
+      // First, try to map by line index
+      for (const replacement of lineReplacements) {
+        const originalLine = replacement.originalLine?.trim();
+        const tailoredLine = replacement.tailoredLine?.trim();
+        const lineIndex = replacement.lineIndex;
+
+        if (originalLine && tailoredLine) {
+          // Primary mapping: try exact line index if provided
+          if (
+            typeof lineIndex === "number" &&
+            lineIndex >= 0 &&
+            lineIndex < originalLines.length
+          ) {
+            lineReplacementMap.set(lineIndex, tailoredLine);
+            console.log(
+              `Direct mapped line ${lineIndex}: "${originalLine}" -> "${tailoredLine}"`
+            );
+          } else {
+            // Fallback: content-based matching
+            const actualIndex = originalLines.findIndex((line) => {
+              const normalizedOriginal = line
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, " ");
+              const normalizedSearch = originalLine
+                .toLowerCase()
+                .replace(/\s+/g, " ");
+              return (
+                normalizedOriginal === normalizedSearch ||
+                normalizedOriginal.includes(normalizedSearch) ||
+                normalizedSearch.includes(normalizedOriginal)
+              );
+            });
+
+            if (actualIndex !== -1 && !lineReplacementMap.has(actualIndex)) {
+              lineReplacementMap.set(actualIndex, tailoredLine);
+              console.log(
+                `Content mapped line ${actualIndex}: "${originalLine}" -> "${tailoredLine}"`
+              );
+            }
+          }
+        }
+      }
+
+      // Ensure we have replacements for as many lines as possible
+      for (let i = 0; i < originalLines.length; i++) {
+        if (!lineReplacementMap.has(i)) {
+          // If no replacement found, use original with minimal enhancement
+          const originalLine = originalLines[i].trim();
+          if (originalLine.length > 0) {
+            lineReplacementMap.set(i, originalLine);
+            console.log(`Using original for line ${i}: "${originalLine}"`);
+          }
+        }
+      }
 
       // Modify original document XML with tailored content
-      console.log("Modifying original document XML with tailored content...");
-      let lineIndex = 0;
+      console.log(
+        "Modifying original document XML with comprehensive tailored content..."
+      );
+      let currentLineIndex = 0;
 
       // Replace text content while preserving XML structure
       const paragraphRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/g;
       let paragraphMatch;
       const replacements = [];
 
-      // First pass: collect all paragraphs with text and their replacements
+      // Process all paragraphs and apply improvements
       while (
         (paragraphMatch = paragraphRegex.exec(modifiedDocumentXml)) !== null
       ) {
@@ -184,45 +329,68 @@ TAILORED RESUME:`;
 
         if (!originalText.trim()) continue;
 
-        // Get corresponding tailored line
+        // Get the replacement for this line (should exist for all lines now)
         const tailoredText =
-          lineIndex < tailoredLines.length
-            ? tailoredLines[lineIndex]
-            : originalText;
-        lineIndex++;
+          lineReplacementMap.get(currentLineIndex) || originalText;
+        currentLineIndex++;
+
+        // Always apply replacement to ensure all lines are processed
+        // Length normalization with more flexibility for improvements
+        let finalTailoredText = tailoredText;
+        const lengthRatio = tailoredText.length / originalText.length;
+
+        if (lengthRatio > 1.8) {
+          // Too long, truncate intelligently
+          const words = tailoredText.split(" ");
+          const targetLength = Math.floor(originalText.length * 1.5);
+          let truncated = "";
+
+          for (const word of words) {
+            if ((truncated + " " + word).length <= targetLength) {
+              truncated += (truncated ? " " : "") + word;
+            } else {
+              break;
+            }
+          }
+
+          finalTailoredText =
+            truncated || tailoredText.substring(0, targetLength);
+        } else if (lengthRatio < 0.5) {
+          // Too short, might need expansion but be careful not to add meaningless content
+          finalTailoredText = tailoredText; // Keep as is for now
+        }
 
         // Escape XML special characters in the tailored text
-        const escapedText = tailoredText
+        const escapedText = finalTailoredText
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&apos;");
 
-        // Create the replacement paragraph with only the first text run containing content
-        let isFirstTextRun = true;
+        // Create the replacement paragraph preserving all formatting
         const modifiedParagraph = fullMatch.replace(
           /<w:t([^>]*)>([^<]*)<\/w:t>/g,
-          (textMatch, attributes, textContent) => {
-            if (isFirstTextRun && textContent.trim()) {
-              // Replace the first text run with tailored content
-              isFirstTextRun = false;
+          (textMatch, attributes, textContent, offset) => {
+            // Only replace the first meaningful text run
+            if (textContent.trim() && textMatch === textMatches[0]) {
               return `<w:t${attributes}>${escapedText}</w:t>`;
-            } else if (textContent.trim()) {
-              // Clear subsequent text runs but keep the formatting tags
-              return `<w:t${attributes}></w:t>`;
             }
-            return textMatch;
+            // Clear subsequent text runs to avoid duplication
+            return textContent.trim() ? `<w:t${attributes}></w:t>` : textMatch;
           }
         );
 
         replacements.push({
           original: fullMatch,
           modified: modifiedParagraph,
+          lineIndex: currentLineIndex - 1,
+          originalText: originalText,
+          tailoredText: finalTailoredText,
         });
       }
 
-      // Second pass: apply all replacements
+      // Apply all replacements
       for (const replacement of replacements) {
         modifiedDocumentXml = modifiedDocumentXml.replace(
           replacement.original,
@@ -230,7 +398,12 @@ TAILORED RESUME:`;
         );
       }
 
-      console.log("Document XML modification complete.");
+      console.log(
+        `Applied ${replacements.length} comprehensive content replacements to document XML.`
+      );
+      console.log(
+        `Line replacement coverage: ${lineReplacementMap.size}/${originalLines.length} lines enhanced`
+      );
     } catch (error) {
       console.error("Failed to process resume with AI:", error);
       throw new Error("Failed to tailor resume. Please try again.");
