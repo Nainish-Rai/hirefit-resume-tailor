@@ -547,7 +547,7 @@ Focus your improvements on lines marked as [BULLET] or [CONTENT]. Keep [STRUCTUR
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
-      return new NextResponse(modifiedBuffer, {
+      return new NextResponse(new Uint8Array(modifiedBuffer), {
         status: 200,
         headers: {
           "Content-Type":
@@ -931,7 +931,7 @@ TOTAL LINES TO IMPROVE: ${originalLines.length}`;
         console.log("=== END PHASE 4 ===");
 
         // Return the modified document
-        return new NextResponse(modifiedBuffer, {
+        return new NextResponse(new Uint8Array(modifiedBuffer), {
           status: 200,
           headers: {
             "Content-Type":
